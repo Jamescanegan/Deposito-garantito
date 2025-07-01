@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Deposito Garantito</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
+</head>
+<body style="font-family:sans-serif">
+  <h2>💰 Deposito Garantito 1% al giorno</h2>
+
+  <button onclick="connect()">🔗 Connetti Wallet</button>
+  <p id="account"></p>
+
+  <hr>
+  <h3>➕ Deposita</h3>
+  <input type="number" id="amount" placeholder="Importo in USDT" />
+  <button onclick="deposit()">Deposita</button>
+
+  <h3>💸 Ritira</h3>
+  <button onclick="withdraw()">Ritira Profitti + Capitale</button>
+
+  <h3>🔁 Rinnova</h3>
+  <button onclick="renew()">Rinnova per altri 30 giorni</button>
+
+  <h3>📊 Info Deposito</h3>
+  <button onclick="getInfo()">Mostra Stato</button>
+  <pre id="info"></pre>
+
+  <script>
+    const CONTRACT_ADDRESS = 'PASTE_YOUR_CONTRACT_ADDRESS_HERE';
+    const USDT_ADDRESS = '0x55d398326f99059fF775485246999027B3197955'; // USDT BEP-20 su BSC
+
+    const ABI = [ /* ... ABI JSON del contratto qui ... */ ];
+
+    let web3, contract, account;
+
+    async function connect() {
+      if (window.ethereum) {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        web3 = new Web3(window.ethereum);
+        const accounts = await web3.eth.getAccounts();
+        account = accounts[0];
+        document.getElementById('account').innerText = 'Connesso: ' + account;
+
+        contract = new web3.eth.Contract(ABI, CONTRACT_ADDRESS);
+      } else {
+        alert('Installa MetaMask!');
+      }
+    }
+
+    async function deposit() {
+      const amount = document.getElementById('amount').value;
+      const weiAmount = web3.utils.toWei(amount, 'ether');
+
+      const usdt = new web3.eth.Contract([
+        { "constant": false, "inputs": [{ "name": "_spender", "type": "address" }, { "name": "_value", "type": "uint256" }], "name": "approve", "outputs": [{ "name": "", "type": "bool" }], "type": "function" }
+      ], USDT_ADDRESS);
+
+      await usdt.methods.approve(CONTRACT_ADDRESS, weiAmount).send({ from: account });
+      await contract.methods.deposit(weiAmount).send({ from: account });
+      alert('Deposito effettuato!');
+    }
+
+    async function withdraw() {
+      await contract.methods.withdraw(true).send({ from: account });
+      alert('Prelievo completato!');
+    }
+
+    async function renew() {
+      await contract.methods.renew().send({ from: account });
+      alert('Rinnovato per altri 30 giorni!');
+    }
+
+    async function getInfo() {
+      const info = await contract.methods.getDepositInfo(account).call();
+      document.getElementById('info').innerText = `
+Importo depositato: ${web3.utils.fromWei(info.amount, 'ether')} USDT
+Inizio: ${new Date(info.startDate * 1000).toLocaleDateString()}
+Attivo: ${info.active}
+Profitto: ${web3.utils.fromWei(info.profit, 'ether')} USDT`;
+    }
+  </script>
+</body>
+</html>
